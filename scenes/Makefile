@@ -18,6 +18,7 @@ DIST=../dist
 all : \
 	$(DIST)/hexapod.pnct \
 	$(DIST)/hexapod.scene \
+	$(DIST)/dragon_egg.pnct \
 
 
 $(DIST)/hexapod.scene : hexapod.blend $(EXPORT_SCENE)
@@ -25,3 +26,6 @@ $(DIST)/hexapod.scene : hexapod.blend $(EXPORT_SCENE)
 
 $(DIST)/hexapod.pnct : hexapod.blend $(EXPORT_MESHES)
 	$(BLENDER) --background --python $(EXPORT_MESHES) -- '$<':Main '$@'
+
+$(DIST)/dragon_egg.pnct : dragon_egg.blend $(EXPORT_MESHES)
+	$(BLENDER) --background --python $(EXPORT_MESHES) -- '$<' '$@'
