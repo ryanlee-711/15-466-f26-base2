@@ -1,6 +1,6 @@
-# (TODO: your game's title)
+# Dragon Egg Chase
 
-Author: (TODO: your name)
+Author: Ryan Lee
 
 Design: (TODO: In two sentences or fewer, describe what is new and interesting about your game.)
 
