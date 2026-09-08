@@ -24,17 +24,36 @@ struct PlayMode : Mode {
 		uint8_t pressed = 0;
 	} left, right, down, up;
 
+	struct Pillar {
+		glm::vec3 position;
+		float radius;
+		float height;
+	};
+	std::vector<Pillar> pillars;
+
+	struct Egg {
+		Scene::Transform *transform = nullptr;
+		Scene::Drawable *drawable = nullptr;
+		bool collected = false;
+	};
+	std::vector<Egg> eggs;
+	uint32_t eggs_collected = 0;
+
 	//local copy of the game scene (so code can change it during gameplay):
 	Scene scene;
 
 	//hexapod leg to wobble:
-	Scene::Transform *hip = nullptr;
-	Scene::Transform *upper_leg = nullptr;
-	Scene::Transform *lower_leg = nullptr;
-	glm::quat hip_base_rotation;
-	glm::quat upper_leg_base_rotation;
-	glm::quat lower_leg_base_rotation;
-	float wobble = 0.0f;
+	Scene::Transform *dragon = nullptr;
+	glm::quat dragon_rotation;
+	float speed = 0.0f;
+	float max_speed = 90.0f;
+	float turn_speed = 40.0f;
+	float accel = 4.0f;
+	float decel = 6.0f;
+	float vert = 0.0f;
+	float horiz = 0.0f;
+	bool won = false;
+	float time = 0.0f;
 	
 	//camera:
 	Scene::Camera *camera = nullptr;

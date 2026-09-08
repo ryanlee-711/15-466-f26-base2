@@ -9,8 +9,11 @@
 #include "data_path.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
-
+#include <cmath>
+#include <algorithm>
+#include <unordered_map>
 #include <random>
+#include <string>
 
 GLuint level_meshes_for_lit_color_texture_program = 0;
 Load< MeshBuffer > level_meshes(LoadTagDefault, []() -> MeshBuffer const * {
@@ -37,19 +40,29 @@ Load< Scene > level_scene(LoadTagDefault, []() -> Scene const * {
 });
 
 PlayMode::PlayMode() : scene(*level_scene) {
+	std::unordered_map< Scene::Transform *, Scene::Drawable * > transform_to_drawable;
+	for (auto &d : scene.drawables) {
+		transform_to_drawable[d.transform] = &d;
+	}
 	//get pointers to leg for convenience:
 	for (auto &transform : scene.transforms) {
-		if (transform.name == "Hip.FL") hip = &transform;
-		else if (transform.name == "UpperLeg.FL") upper_leg = &transform;
-		else if (transform.name == "LowerLeg.FL") lower_leg = &transform;
+		if (transform.name == "Dragon") dragon = &transform;
+		if (transform.name.starts_with("Pillar")) {
+			Pillar pil;
+			pil.position = transform.position;
+			pil.radius = 1.14f * std::max(std::abs(transform.scale.x), std::abs(transform.scale.y));
+			pil.height = transform.position.z + (0.5f * 2.0f * std::abs(transform.scale.z));
+			pillars.emplace_back(pil);
+		}
+		if (transform.name.starts_with("Egg")) {
+			Egg egg;
+			egg.transform = &transform;
+			auto drawb = transform_to_drawable.find(&transform);
+			if (drawb != transform_to_drawable.end()) egg.drawable = drawb->second;
+			eggs.emplace_back(egg);
+		}
 	}
-	if (hip == nullptr) throw std::runtime_error("Hip not found.");
-	if (upper_leg == nullptr) throw std::runtime_error("Upper leg not found.");
-	if (lower_leg == nullptr) throw std::runtime_error("Lower leg not found.");
-
-	hip_base_rotation = hip->rotation;
-	upper_leg_base_rotation = upper_leg->rotation;
-	lower_leg_base_rotation = lower_leg->rotation;
+	if (dragon == nullptr) throw std::runtime_error("Dragon not found.");
 
 	//get pointer to camera for convenience:
 	if (scene.cameras.size() != 1) throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
@@ -96,69 +109,74 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			down.pressed = false;
 			return true;
 		}
-	} else if (evt.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-		if (SDL_GetWindowRelativeMouseMode(Mode::window) == false) {
-			SDL_SetWindowRelativeMouseMode(Mode::window, true);
-			return true;
 		}
-	} else if (evt.type == SDL_EVENT_MOUSE_MOTION) {
-		if (SDL_GetWindowRelativeMouseMode(Mode::window) == true) {
-			glm::vec2 motion = glm::vec2(
-				evt.motion.xrel / float(window_size.y),
-				-evt.motion.yrel / float(window_size.y)
-			);
-			camera->transform->rotation = glm::normalize(
-				camera->transform->rotation
-				* glm::angleAxis(-motion.x * camera->fovy, glm::vec3(0.0f, 1.0f, 0.0f))
-				* glm::angleAxis(motion.y * camera->fovy, glm::vec3(1.0f, 0.0f, 0.0f))
-			);
-			return true;
-		}
-	}
 
 	return false;
 }
 
 void PlayMode::update(float elapsed) {
+	if (!won) time += elapsed;
+	if (won) return;
+	float vertIn = 0.0f;
+	float horizIn = 0.0f;
+	if (left.pressed && !right.pressed) horizIn = 1.0f;
+	if (!left.pressed && right.pressed) horizIn = -1.0f;
+	if (up.pressed && !down.pressed) vertIn = 1.0f;
+	if (!up.pressed && down.pressed) vertIn = -1.0f;
 
-	//slowly rotates through [0,1):
-	wobble += elapsed / 10.0f;
-	wobble -= std::floor(wobble);
+	vert += vertIn * 0.9f * elapsed;
+	horiz += horizIn * 1.0f * elapsed;
+	vert = glm::clamp(vert, -1.0f, 1.0f);
 
-	hip->rotation = hip_base_rotation * glm::angleAxis(
-		glm::radians(5.0f * std::sin(wobble * 2.0f * float(M_PI))),
-		glm::vec3(0.0f, 1.0f, 0.0f)
-	);
-	upper_leg->rotation = upper_leg_base_rotation * glm::angleAxis(
-		glm::radians(7.0f * std::sin(wobble * 2.0f * 2.0f * float(M_PI))),
-		glm::vec3(0.0f, 0.0f, 1.0f)
-	);
-	lower_leg->rotation = lower_leg_base_rotation * glm::angleAxis(
-		glm::radians(10.0f * std::sin(wobble * 3.0f * 2.0f * float(M_PI))),
-		glm::vec3(0.0f, 0.0f, 1.0f)
-	);
+	float turning = std::min(1.0f, std::abs(horizIn) + std::abs(vertIn));
+	float next_speed = max_speed - turning * (max_speed - turn_speed);
+	next_speed -= std::sin(vert) * 15.0f;
+	float rate = accel;
+	if (next_speed < speed) rate = decel;
+	speed += (next_speed - speed) * std::min(1.0f, rate * elapsed);
 
-	//move camera:
-	{
+	dragon->rotation = glm::angleAxis(horiz, glm::vec3(0.0f, 0.0f, 1.0f)) * glm::angleAxis(vert, glm::vec3(1.0f, 0.0f, 0.0f));
 
-		//combine inputs into a move:
-		constexpr float PlayerSpeed = 30.0f;
-		glm::vec2 move = glm::vec2(0.0f);
-		if (left.pressed && !right.pressed) move.x =-1.0f;
-		if (!left.pressed && right.pressed) move.x = 1.0f;
-		if (down.pressed && !up.pressed) move.y =-1.0f;
-		if (!down.pressed && up.pressed) move.y = 1.0f;
+	glm::vec3 forward = dragon->rotation * glm::vec3(0.0f, 1.0f, 0.0f);
+	dragon->position += forward * speed * elapsed;
+	dragon->position.z = glm::clamp(dragon->position.z, 5.0f, 500.0f);
+	dragon->position.x = glm::clamp(dragon->position.x, -400.0f, 400.0f);
+	dragon->position.y = glm::clamp(dragon->position.y, -400.0f, 400.0f);
 
-		//make it so that moving diagonally doesn't go faster:
-		if (move != glm::vec2(0.0f)) move = glm::normalize(move) * PlayerSpeed * elapsed;
+	for (auto const &pillar : pillars) {
+		if (dragon->position.z >= pillar.height) continue;
+		glm::vec2 offset = glm::vec2(dragon->position) - glm::vec2(pillar.position);
+		float dist = glm::length(offset);
+		float minDist = pillar.radius + 9;
 
-		glm::mat4x3 frame = camera->transform->make_parent_from_local();
-		glm::vec3 frame_right = frame[0];
-		//glm::vec3 up = frame[1];
-		glm::vec3 frame_forward = -frame[2];
-
-		camera->transform->position += move.x * frame_right + move.y * frame_forward;
+		if (dist < minDist) {
+			glm::vec2 normal = (dist > 0.0001f ? offset / dist : glm::vec2(1.0f, 0.0f));
+			glm::vec2 pushed = glm::vec2(pillar.position) + normal * (minDist);
+			dragon->position.x = pushed.x;
+			dragon->position.y = pushed.y;
+			speed *= 0.5f;
+		}
 	}
+
+	for (auto &egg : eggs) {
+		if (egg.collected) continue;
+		float dist = glm::length(dragon->position - egg.transform->position);
+		if (dist < 10) {
+			egg.collected = true;
+			if (egg.drawable) egg.drawable->pipeline.count = 0;
+			eggs_collected += 1;
+			if (eggs_collected == eggs.size()) won = true;
+		}
+	}
+
+	//Camera Position
+	glm::vec3 camPos = dragon->position - forward * 100.0f + glm::vec3(0.0f, 0.0f, 15.0f);
+	camera->transform->position = glm::mix(camera->transform->position, camPos, std::min(1.0f, 6.0f * elapsed));
+	if (camera->transform->position.z < 1.0f) camera->transform->position.z = 1.0f;
+	glm::vec3 z_axis = glm::normalize(camera->transform->position - dragon->position);
+	glm::vec3 x_axis = glm::normalize(glm::cross(glm::vec3(0.0f, 0.0f, 1.0f), z_axis));
+	glm::vec3 y_axis = glm::cross(z_axis, x_axis);
+	camera->transform->rotation = glm::quat_cast(glm::mat3(x_axis, y_axis, z_axis));
 
 	//reset button press counters:
 	left.downs = 0;
@@ -179,7 +197,7 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 	glUniform3fv(lit_color_texture_program->LIGHT_ENERGY_vec3, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 0.95f)));
 	glUseProgram(0);
 
-	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+	glClearColor(0.08f, 0.19f, 0.4f, 1.0f);
 	glClearDepth(1.0f); //1.0 is actually the default value to clear the depth buffer to, but FYI you can change it.
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -201,14 +219,29 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		));
 
 		constexpr float H = 0.09f;
-		lines.draw_text("Mouse motion rotates camera; WASD moves; escape ungrabs mouse",
-			glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
-			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-		float ofs = 2.0f / drawable_size.y;
-		lines.draw_text("Mouse motion rotates camera; WASD moves; escape ungrabs mouse",
-			glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + 0.1f * H + ofs, 0.0),
-			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-			glm::u8vec4(0xff, 0xff, 0xff, 0x00));
+
+		auto draw_text = [&](std::string const &text, float x, float y, float size) {
+			lines.draw_text(text, glm::vec3(x, y, 0.0f),
+				glm::vec3(size, 0.0f, 0.0f), glm::vec3(0.0f, size, 0.0f),
+				glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+			float ofs = 2.0f / drawable_size.y;
+			lines.draw_text(text, glm::vec3(x + ofs, y + ofs, 0.0f),
+				glm::vec3(size, 0.0f, 0.0f), glm::vec3(0.0f, size, 0.0f),
+				glm::u8vec4(0xff, 0xff, 0xff, 0x00));
+		};
+
+		int intTime = int(time);
+		int tenths = int((time - float(intTime)) * 10.0f);
+		std::string time_text = "Time: " + std::to_string(intTime) + "." + std::to_string(tenths) + "s";
+		draw_text(time_text, -aspect + 0.1f * H, -1.0f + 1.7f * H, H);
+
+		std::string eggCounter = "Eggs: " + std::to_string(eggs_collected) + " / " + std::to_string(eggs.size());
+		draw_text(eggCounter, -aspect + 0.1f * H, -1.0f + 0.5f * H, H);
+
+		if (won) {
+			draw_text("ALL EGGS COLLECTED!", -aspect * 0.3f, 0.0f, H * 1.5f);
+			std::string final_time = "Final Time: " + std::to_string(intTime) + "." + std::to_string(tenths) + "s";
+			draw_text(final_time, -aspect * 0.2f, -0.15f, H * 1.5f);
+		}	
 	}
 }
