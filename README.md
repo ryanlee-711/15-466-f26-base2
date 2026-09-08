@@ -20,6 +20,6 @@ Controls:
 W - Fly Up,
 A - Turn Left,
 S - Fly Down,
-D - Turn Right,
+D - Turn Right
 
 This game was built with [NEST](NEST.md).
