@@ -54,6 +54,12 @@ struct PlayMode : Mode {
 	float horiz = 0.0f;
 	bool won = false;
 	float time = 0.0f;
+
+	Scene::Transform *wingL = nullptr;
+	Scene::Transform *wingR = nullptr;
+	glm::quat wingL_base;
+	glm::quat wingR_base;
+	float flap = 0.0f;
 	
 	//camera:
 	Scene::Camera *camera = nullptr;

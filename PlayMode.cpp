@@ -61,8 +61,14 @@ PlayMode::PlayMode() : scene(*level_scene) {
 			if (drawb != transform_to_drawable.end()) egg.drawable = drawb->second;
 			eggs.emplace_back(egg);
 		}
+		if (transform.name == "WingL") wingL = &transform;
+		if (transform.name == "WingR") wingR = &transform;
 	}
 	if (dragon == nullptr) throw std::runtime_error("Dragon not found.");
+	if (wingL == nullptr) throw std::runtime_error("WingL not found.");
+	if (wingR == nullptr) throw std::runtime_error("WingR not found.");
+	wingL_base = wingL->rotation;
+	wingR_base = wingR->rotation;
 
 	//get pointer to camera for convenience:
 	if (scene.cameras.size() != 1) throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
@@ -116,6 +122,11 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 
 void PlayMode::update(float elapsed) {
 	if (!won) time += elapsed;
+	flap += elapsed * 6.0f;
+	float angle = std::sin(flap) * 1.2f;
+	wingL->rotation = wingL_base * glm::angleAxis(angle, glm::vec3(0.0f, 1.0f, 0.0f));
+	wingR->rotation = wingR_base * glm::angleAxis(angle, glm::vec3(0.0f, 1.0f, 0.0f));
+	
 	if (won) return;
 	float vertIn = 0.0f;
 	float horizIn = 0.0f;
@@ -147,7 +158,7 @@ void PlayMode::update(float elapsed) {
 		if (dragon->position.z >= pillar.height) continue;
 		glm::vec2 offset = glm::vec2(dragon->position) - glm::vec2(pillar.position);
 		float dist = glm::length(offset);
-		float minDist = pillar.radius + 9;
+		float minDist = pillar.radius + 12;
 
 		if (dist < minDist) {
 			glm::vec2 normal = (dist > 0.0001f ? offset / dist : glm::vec2(1.0f, 0.0f));
@@ -170,7 +181,7 @@ void PlayMode::update(float elapsed) {
 	}
 
 	//Camera Position
-	glm::vec3 camPos = dragon->position - forward * 100.0f + glm::vec3(0.0f, 0.0f, 15.0f);
+	glm::vec3 camPos = dragon->position - forward * 115.0f + glm::vec3(0.0f, 0.0f, 15.0f);
 	camera->transform->position = glm::mix(camera->transform->position, camPos, std::min(1.0f, 6.0f * elapsed));
 	if (camera->transform->position.z < 1.0f) camera->transform->position.z = 1.0f;
 	glm::vec3 z_axis = glm::normalize(camera->transform->position - dragon->position);
