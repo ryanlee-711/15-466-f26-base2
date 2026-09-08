@@ -40,11 +40,11 @@ Load< Scene > level_scene(LoadTagDefault, []() -> Scene const * {
 });
 
 PlayMode::PlayMode() : scene(*level_scene) {
-	std::unordered_map< Scene::Transform *, Scene::Drawable * > transform_to_drawable;
+	std::unordered_map<Scene::Transform*, Scene::Drawable*> transform_to_drawable;
 	for (auto &d : scene.drawables) {
 		transform_to_drawable[d.transform] = &d;
 	}
-	//get pointers to leg for convenience:
+
 	for (auto &transform : scene.transforms) {
 		if (transform.name == "Dragon") dragon = &transform;
 		if (transform.name.starts_with("Pillar")) {
@@ -153,7 +153,7 @@ void PlayMode::update(float elapsed) {
 
 	glm::vec3 forward = dragon->rotation * glm::vec3(0.0f, 1.0f, 0.0f);
 	dragon->position += forward * speed * elapsed;
-	dragon->position.z = glm::clamp(dragon->position.z, 5.0f, 500.0f);
+	dragon->position.z = glm::clamp(dragon->position.z, 5.0f, 500.0f); //So u can't go underwater
 	dragon->position.x = glm::clamp(dragon->position.x, -400.0f, 400.0f);
 	dragon->position.y = glm::clamp(dragon->position.y, -400.0f, 400.0f);
 
