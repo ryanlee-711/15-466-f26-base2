@@ -17,9 +17,9 @@ If you run into a pillar, you will lose your speed resulting in a large time red
 You also slow down when turning.
 
 Controls:
-W - Fly Up
-A - Turn Left
-S - Fly Down
-D - Turn Right
+W - Fly Up,
+A - Turn Left,
+S - Fly Down,
+D - Turn Right,
 
 This game was built with [NEST](NEST.md).
