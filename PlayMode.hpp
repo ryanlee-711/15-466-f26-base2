@@ -46,14 +46,15 @@ struct PlayMode : Mode {
 	Scene::Transform *dragon = nullptr;
 	glm::quat dragon_rotation;
 	float speed = 0.0f;
-	float max_speed = 90.0f;
+	float max_speed = 100.0f;
 	float turn_speed = 40.0f;
-	float accel = 4.0f;
+	float accel = 2.0f;
 	float decel = 6.0f;
 	float vert = 0.0f;
 	float horiz = 0.0f;
 	bool won = false;
 	float time = 0.0f;
+	float turnDip = 0.0f;
 
 	Scene::Transform *wingL = nullptr;
 	Scene::Transform *wingR = nullptr;

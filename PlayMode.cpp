@@ -126,7 +126,7 @@ void PlayMode::update(float elapsed) {
 	float angle = std::sin(flap) * 1.2f;
 	wingL->rotation = wingL_base * glm::angleAxis(angle, glm::vec3(0.0f, 1.0f, 0.0f));
 	wingR->rotation = wingR_base * glm::angleAxis(angle, glm::vec3(0.0f, 1.0f, 0.0f));
-	
+
 	if (won) return;
 	float vertIn = 0.0f;
 	float horizIn = 0.0f;
@@ -146,7 +146,10 @@ void PlayMode::update(float elapsed) {
 	if (next_speed < speed) rate = decel;
 	speed += (next_speed - speed) * std::min(1.0f, rate * elapsed);
 
-	dragon->rotation = glm::angleAxis(horiz, glm::vec3(0.0f, 0.0f, 1.0f)) * glm::angleAxis(vert, glm::vec3(1.0f, 0.0f, 0.0f));
+	float newTurnDip = -horizIn * 0.6f;
+	turnDip += (newTurnDip - turnDip) * std::min(1.0f, 4.0f * elapsed);
+
+	dragon->rotation = glm::angleAxis(horiz, glm::vec3(0.0f, 0.0f, 1.0f)) * glm::angleAxis(vert, glm::vec3(1.0f, 0.0f, 0.0f)) * glm::angleAxis(turnDip, glm::vec3(0.0f, 1.0f, 0.0f));
 
 	glm::vec3 forward = dragon->rotation * glm::vec3(0.0f, 1.0f, 0.0f);
 	dragon->position += forward * speed * elapsed;
@@ -172,7 +175,7 @@ void PlayMode::update(float elapsed) {
 	for (auto &egg : eggs) {
 		if (egg.collected) continue;
 		float dist = glm::length(dragon->position - egg.transform->position);
-		if (dist < 10) {
+		if (dist < 13) {
 			egg.collected = true;
 			if (egg.drawable) egg.drawable->pipeline.count = 0;
 			eggs_collected += 1;
@@ -240,6 +243,10 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 				glm::vec3(size, 0.0f, 0.0f), glm::vec3(0.0f, size, 0.0f),
 				glm::u8vec4(0xff, 0xff, 0xff, 0x00));
 		};
+
+		int intSpeed = int(speed);
+		std::string speed_text = "Speed: " + std::to_string(intSpeed);
+		draw_text(speed_text, -aspect + 0.1f * H, -1.0f + 2.9f * H, H);
 
 		int intTime = int(time);
 		int tenths = int((time - float(intTime)) * 10.0f);
